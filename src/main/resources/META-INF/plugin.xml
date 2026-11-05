@@ -1,0 +1,23 @@
+<idea-plugin>
+    <id>com.github.repofilter.gitbranches</id>
+    <name>Git Branches Repository Filter</name>
+    <vendor>local</vendor>
+
+    <description><![CDATA[
+    在 Git 工具窗口的分支面板（按仓库分组）中增加按仓库筛选的能力：
+    <ul>
+      <li>右键点击仓库节点（支持 Ctrl 多选）选择“筛选当前路径”</li>
+      <li>搜索框右侧的“显示全部项目”按钮可重置筛选</li>
+    </ul>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.vcs</depends>
+    <depends>Git4Idea</depends>
+
+    <idea-version since-build="262" until-build="262.*"/>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="com.github.repofilter.gitbranches.BranchesPanelStartupActivity"/>
+    </extensions>
+</idea-plugin>
