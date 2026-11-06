@@ -7,7 +7,6 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.openapi.wm.ex.ToolWindowManagerListener
@@ -15,6 +14,7 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerListener.ToolWindowManagerEve
 import com.intellij.ui.content.ContentManagerEvent
 import com.intellij.ui.content.ContentManagerListener
 import com.intellij.util.Alarm
+import com.intellij.vcs.log.VcsLogFilterCollection
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.Container
@@ -245,7 +245,6 @@ internal class BranchesPanelInstaller(private val project: Project) {
 
         val button = JButton(RESET_TEXT).apply {
             putClientProperty("JButton.buttonType", "toolbar")
-            addActionListener { service.resetFilter(GitUiBridge.filterUi(tree)) }
         }
 
         val wrapper = JPanel(BorderLayout()).apply {
@@ -259,15 +258,43 @@ internal class BranchesPanelInstaller(private val project: Project) {
         host.revalidate()
         host.repaint()
 
-        fun update(roots: Set<VirtualFile>) {
-            button.isEnabled = roots.isNotEmpty()
-            button.toolTipText =
-                if (roots.isEmpty()) RESET_TOOLTIP
-                else "已筛选 ${roots.size} 个仓库，点击显示全部项目"
+        // 按钮状态必须读 Git Log 当前真实生效的筛选，而不是只读插件的会话状态。
+        // Git Log 会把筛选持久化到 workspace.xml，重启后会自动恢复出 root/structure/branch
+        // 筛选，此时插件的会话状态是空的；只看会话状态会让按钮一直是灰的、点不动。
+        fun currentFilterUi() = GitUiBridge.filterUi(tree)
+
+        fun refresh() {
+            val filters = currentFilterUi()?.filters
+            if (filters == null) {
+                val roots = service.activeRoots
+                button.isEnabled = roots.isNotEmpty()
+                button.toolTipText =
+                    if (roots.isEmpty()) RESET_TOOLTIP
+                    else "已筛选 ${roots.size} 个仓库，点击显示全部项目"
+                return
+            }
+
+            val roots = filters.get(VcsLogFilterCollection.ROOT_FILTER)?.roots?.toSet() ?: emptySet()
+            val hasStructure = filters.get(VcsLogFilterCollection.STRUCTURE_FILTER) != null
+            val hasBranch = filters.get(VcsLogFilterCollection.BRANCH_FILTER) != null
+
+            button.isEnabled = roots.isNotEmpty() || hasStructure || hasBranch
+            button.toolTipText = when {
+                roots.isNotEmpty() -> "已筛选 ${roots.size} 个仓库，点击显示全部项目"
+                hasStructure -> "已按路径筛选，点击显示全部项目"
+                hasBranch -> "已按分支筛选，点击显示全部项目"
+                else -> RESET_TOOLTIP
+            }
         }
 
-        update(service.activeRoots)
-        service.addListener { roots -> update(roots) }
+        button.addActionListener {
+            service.resetFilter(currentFilterUi())
+            refresh()
+        }
+
+        refresh()
+        currentFilterUi()?.addFilterListener { refresh() }
+        service.addListener { refresh() }
         log.info("GitBranchesRepoFilter: “显示全部项目”按钮已添加")
     }
 
@@ -336,6 +363,6 @@ internal class BranchesPanelInstaller(private val project: Project) {
         const val KEY_RESET_BUTTON = "gitBranchesRepoFilter.resetButton"
 
         const val RESET_TEXT = "显示全部项目"
-        const val RESET_TOOLTIP = "清除仓库筛选，显示全部项目"
+        const val RESET_TOOLTIP = "清除仓库、路径与分支筛选，显示全部项目"
     }
 }

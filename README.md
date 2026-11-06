@@ -9,10 +9,13 @@ IntelliJ IDEA 插件：在 **Git 工具窗口 → Log → 左侧分支面板**�
 - 右键仓库节点 → **筛选当前路径**：只显示该仓库的分支与提交。
 - 按住 `Ctrl` / `Shift` 多选仓库节点 → **筛选所选 N 个路径**。
 - 分支面板搜索框右侧新增 **显示全部项目** 按钮，一键清除筛选。
+- 按钮状态跟随 Git Log 的真实筛选：仓库、路径、分支任一筛选生效时按钮可用。
 - 若筛选前你已经在 Log 工具窗口里设置过「路径」筛选，重置时会恢复它。
 - 支持多选、右键未选中节点时自动先选中。
 
-筛选通过 Git Log 的「路径」（root）筛选实现，因此 **Log 的提交列表也会一起被过滤**（方案 A）。筛选只在当前会话有效，不跨 IDE 重启保存。
+筛选通过 Git Log 的「路径」（root）筛选实现，因此 **Log 的提交列表也会一起被过滤**（方案 A）。
+
+注意：Git Log 会把它自己的筛选（路径、分支等）持久化到项目的 `.idea/workspace.xml`，重启 IDE 后可能被自动恢复。遇到「重启后分支面板只剩一个分支」时，点 **显示全部项目** 即可清除恢复出来的仓库/路径/分支筛选。
 
 ## 环境要求
 
@@ -38,7 +41,7 @@ $env:JAVA_HOME="D:\IntelliJ IDEA 2026.2.3\jbr"
 产物：
 
 ```
-build/distributions/git-branches-repo-filter-0.1.3.zip
+build/distributions/git-branches-repo-filter-0.1.4.zip
 ```
 
 > `build.gradle.kts` 里的 `local(localIdePath)` 会使用本机 IDE 的依赖，换机器时通过 `-PlocalIdePath=...` 覆盖即可。
@@ -46,7 +49,7 @@ build/distributions/git-branches-repo-filter-0.1.3.zip
 ## 安装
 
 1. IDEA → `Settings` → `Plugins` → 齿轮 → **Install Plugin from Disk…**
-2. 选择 `build/distributions/git-branches-repo-filter-0.1.3.zip`
+2. 选择 `build/distributions/git-branches-repo-filter-0.1.4.zip`
 3. 重启 IDE
 
 ## 使用
@@ -78,7 +81,7 @@ build/distributions/git-branches-repo-filter-0.1.3.zip
 | --- | --- |
 | `GitUiBridge.kt` | 所有对 Git 插件内部实现的反射与 DataContext 访问，集中在这里 |
 | `BranchesPanelInstaller.kt` | 监听 Git 工具窗口/内容页，找到分支树后安装右键菜单与按钮 |
-| `BranchFilterService.kt` | 会话级筛选状态，应用/重置 `ROOT_FILTER`，恢复用户原有筛选 |
+| `BranchFilterService.kt` | 筛选状态，应用/重置 `ROOT_FILTER`，清除 `STRUCTURE_FILTER` / `BRANCH_FILTER`，恢复用户原有筛选 |
 | `FilterByPathAction.kt` | 右键动作「筛选当前路径 / 筛选所选 N 个路径」 |
 | `CompositePopupGroup.kt` | 内置菜单 + 本插件动作的组合 |
 | `BranchesPanelStartupActivity.kt` | `ProjectActivity` 入口 |
@@ -86,7 +89,8 @@ build/distributions/git-branches-repo-filter-0.1.3.zip
 ## 已知限制
 
 - Log 的提交列表会随分支面板一起被过滤（这是方案 A 的预期行为）。
-- 筛选只在当前会话有效，不跨 IDE 重启保存。
+- 本插件自身不在重启后恢复筛选；但 Git Log 会持久化它自己的筛选（`workspace.xml`），
+  重启后可能恢复出仓库/路径/分支筛选，点 **显示全部项目** 可清除。
 - 依赖 Git 插件的内部实现（`BranchesTreeComponent`、`BranchNodeDescriptor$Repository`、
   `BranchesDashboardActions$BranchesTreeActionGroup`）。IDE 大版本升级后如果其中某一处变化，
   右键菜单或节点识别可能失效；适配点集中在 `GitUiBridge.kt`。

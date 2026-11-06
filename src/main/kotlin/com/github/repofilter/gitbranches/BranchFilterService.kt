@@ -4,6 +4,7 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.vcs.log.VcsLogBranchFilter
 import com.intellij.vcs.log.VcsLogFilter
 import com.intellij.vcs.log.VcsLogFilterCollection
 import com.intellij.vcs.log.VcsLogRootFilter
@@ -79,12 +80,18 @@ internal class BranchFilterService(private val project: Project) {
     }
 
     fun resetFilter(ui: VcsLogFilterUiEx?) {
-        if (filteredRoots.isEmpty()) return
-        val filterUi = appliedUi ?: ui ?: return
+        // 按钮属于某个具体分支树，优先用它所属标签页的 filter UI，
+        // 避免会话里残留的旧标签页状态把重置作用到别的 Log 标签页。
+        val filterUi = ui ?: appliedUi ?: return
         val current = filterUi.filters
 
+        // “显示全部项目”要真的显示全部：除了仓库（root）与路径（structure）筛选，
+        // 还要清掉分支筛选。Git Log 会把筛选持久化到 workspace.xml，重启后可能恢复出
+        // 一个分支筛选；只清 root 的话分支面板仍然只剩那一个分支。
         val restored = buildList {
-            addAll(current.filters.filterNot { it is VcsLogRootFilter || it is VcsLogStructureFilter })
+            addAll(current.filters.filterNot {
+                it is VcsLogRootFilter || it is VcsLogStructureFilter || it is VcsLogBranchFilter
+            })
             savedRootFilter?.let(::add)
             savedStructureFilter?.let(::add)
         }
